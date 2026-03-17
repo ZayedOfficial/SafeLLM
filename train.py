@@ -21,6 +21,7 @@ import os
 import random
 import sys
 from pathlib import Path
+from safelang_data.safelang_1m import create_safelang_1m
 
 import numpy as np
 
@@ -92,8 +93,13 @@ def train_verifier(args):
         print(f"📦 Loading local dataset from {data_path}...")
         ds = load_from_disk(str(data_path))
     else:
-        print("🌐 Local dataset not found. Falling back to HuggingFace Hub (zayedrehman/safelang-1m)...")
-        ds = load_dataset("zayedrehman/safelang-1m")
+        try:
+            print("🌐 Local dataset not found. Attempting to load from HuggingFace Hub (zayedrehman/safelang-1m)...")
+            ds = load_dataset("zayedrehman/safelang-1m")
+        except Exception:
+            print("⚠️  Dataset not found on Hub. Bootstrapping SafeLang-1M from source benchmarks (this may take 5-10 mins) ...")
+            create_safelang_1m(output_dir=str(data_path), push_to_hub=bool(args.push_to_hub))
+            ds = load_from_disk(str(data_path))
     
     train_ds = ds["train"]
     val_ds = ds["validation"]
@@ -226,8 +232,13 @@ def train_llm(args, component: str):
         print(f"📦 Loading local dataset from {data_path}...")
         ds = load_from_disk(str(data_path))
     else:
-        print("🌐 Local dataset not found. Falling back to HuggingFace Hub (zayedrehman/safelang-1m)...")
-        ds = load_dataset("zayedrehman/safelang-1m")
+        try:
+            print("🌐 Local dataset not found. Attempting to load from HuggingFace Hub (zayedrehman/safelang-1m)...")
+            ds = load_dataset("zayedrehman/safelang-1m")
+        except Exception:
+            print("⚠️  Dataset not found on Hub. Bootstrapping SafeLang-1M from source benchmarks ...")
+            create_safelang_1m(output_dir=str(data_path), push_to_hub=bool(args.push_to_hub))
+            ds = load_from_disk(str(data_path))
     
     train_ds = ds["train"]
 

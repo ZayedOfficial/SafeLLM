@@ -6,15 +6,15 @@
 # =========================================================
 dataset:
 	@echo "📦 Building SafeLang-1M dataset..."
-	python datasets/safelang_1m.py --stream --max-samples 1000
+	python safelang_data/safelang_1m.py --stream --max-samples 1000
 
 dataset-full:
 	@echo "📦 Building FULL SafeLang-1M dataset (slow)..."
-	python datasets/safelang_1m.py
+	python safelang_data/safelang_1m.py
 
 dataset-publish:
 	@echo "🚀 Publishing dataset to HuggingFace Hub..."
-	python datasets/safelang_1m.py --push-to-hub
+	python safelang_data/safelang_1m.py --push-to-hub
 
 # =========================================================
 # TRAINING  (verifier runs locally; scout/analyst via Colab)

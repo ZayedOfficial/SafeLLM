@@ -80,9 +80,9 @@ print(result)
 
 ```bash
 # Stream dataset (no local download)
-python datasets/safelang_1m.py --stream --dry-run
+python safelang_data/safelang_1m.py --stream --dry-run
 # Full build + publish to HF Hub
-python datasets/safelang_1m.py --push-to-hub
+python safelang_data/safelang_1m.py --push-to-hub
 ```
 
 ---
