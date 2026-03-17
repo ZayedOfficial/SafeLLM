@@ -53,6 +53,7 @@ BENCHMARKS: Dict[str, Dict[str, Any]] = {
     },
     "jailbreakbench": {
         "path": "JailbreakBench/JBB-Behaviors",
+        "name": "behaviors",
         "split": "train",
         "text_col": "Goal",
         "label_col": None,
@@ -63,11 +64,11 @@ BENCHMARKS: Dict[str, Dict[str, Any]] = {
         "split": "test",
         "text_col": "instruction",
         "label_col": None,
-        "label_map": lambda _: 0,  # XSTest = safe examples (false-positive probes)
+        "label_map": lambda _: 0,
     },
     "beavertails": {
         "path": "PKU-Alignment/BeaverTails",
-        "split": "train",
+        "split": "330k_train",
         "text_col": "prompt",
         "label_col": "is_safe",
         "label_map": lambda x: 0 if x else 1,
@@ -84,10 +85,10 @@ BENCHMARKS: Dict[str, Dict[str, Any]] = {
         "split": "train",
         "text_col": "chosen",
         "label_col": None,
-        "label_map": lambda _: 0,  # RLHF chosen = safe/helpful
+        "label_map": lambda _: 0,
     },
     "promptbench": {
-        "path": "microsoft/promptbench",
+        "path": "m-p-l-d/PromptBench",
         "split": "test",
         "text_col": "content",
         "label_col": "label",
@@ -178,12 +179,16 @@ def load_source(
     try:
         ds = load_dataset(
             cfg["path"],
+            name=cfg.get("name"),
             split=cfg["split"],
             streaming=streaming,
             trust_remote_code=True,
         )
     except Exception as e:
-        print(f"  ⚠️  Failed to load [{name}]: {e}")
+        if "gated" in str(e).lower():
+            print(f"  ⚠️  Skipping [{name}]: It is a GATED dataset. Please grant access on HF Hub.")
+        else:
+            print(f"  ⚠️  Failed to load [{name}]: {e}")
         return []
 
     examples = []

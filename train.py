@@ -95,7 +95,7 @@ def train_verifier(args):
     else:
         try:
             print("🌐 Local dataset not found. Attempting to load from HuggingFace Hub (zayedrehman/safelang-1m)...")
-            ds = load_dataset("zayedrehman/safelang-1m")
+            ds = load_dataset("zayedrehman/safelang-1m", trust_remote_code=True)
         except Exception:
             print("⚠️  Dataset not found on Hub. Bootstrapping SafeLang-1M from source benchmarks (this may take 5-10 mins) ...")
             create_safelang_1m(output_dir=str(data_path), push_to_hub=bool(args.push_to_hub))
@@ -234,7 +234,7 @@ def train_llm(args, component: str):
     else:
         try:
             print("🌐 Local dataset not found. Attempting to load from HuggingFace Hub (zayedrehman/safelang-1m)...")
-            ds = load_dataset("zayedrehman/safelang-1m")
+            ds = load_dataset("zayedrehman/safelang-1m", trust_remote_code=True)
         except Exception:
             print("⚠️  Dataset not found on Hub. Bootstrapping SafeLang-1M from source benchmarks ...")
             create_safelang_1m(output_dir=str(data_path), push_to_hub=bool(args.push_to_hub))
@@ -262,7 +262,6 @@ def train_llm(args, component: str):
         push_to_hub=bool(args.push_to_hub),
         hub_model_id=args.push_to_hub,
         report_to="none",
-        max_seq_length=512,
     )
 
     trainer = SFTTrainer(
@@ -271,6 +270,7 @@ def train_llm(args, component: str):
         args=sft_config,
         tokenizer=tokenizer,
         dataset_text_field="text",
+        max_seq_length=512,
     )
 
     print(f"🚀 Starting {component.upper()} training ...")
