@@ -92,8 +92,8 @@ def train_verifier(args):
         print(f"📦 Loading local dataset from {data_path}...")
         ds = load_from_disk(str(data_path))
     else:
-        print("🌐 Local dataset not found. Falling back to HuggingFace Hub (ZayedRehman/safelang-1m)...")
-        ds = load_dataset("ZayedRehman/safelang-1m")
+        print("🌐 Local dataset not found. Falling back to HuggingFace Hub (zayedrehman/safelang-1m)...")
+        ds = load_dataset("zayedrehman/safelang-1m")
     
     train_ds = ds["train"]
     val_ds = ds["validation"]
@@ -226,8 +226,8 @@ def train_llm(args, component: str):
         print(f"📦 Loading local dataset from {data_path}...")
         ds = load_from_disk(str(data_path))
     else:
-        print("🌐 Local dataset not found. Falling back to HuggingFace Hub (ZayedRehman/safelang-1m)...")
-        ds = load_dataset("ZayedRehman/safelang-1m")
+        print("🌐 Local dataset not found. Falling back to HuggingFace Hub (zayedrehman/safelang-1m)...")
+        ds = load_dataset("zayedrehman/safelang-1m")
     
     train_ds = ds["train"]
 
