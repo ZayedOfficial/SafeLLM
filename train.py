@@ -95,7 +95,7 @@ def train_verifier(args):
     else:
         try:
             print("🌐 Local dataset not found. Attempting to load from HuggingFace Hub (zayedrehman/safelang-1m)...")
-            ds = load_dataset("zayedrehman/safelang-1m", trust_remote_code=True)
+            ds = load_dataset("zayedrehman/safelang-1m")
         except Exception:
             print("⚠️  Dataset not found on Hub. Bootstrapping SafeLang-1M from source benchmarks (this may take 5-10 mins) ...")
             create_safelang_1m(output_dir=str(data_path), push_to_hub=bool(args.push_to_hub))
@@ -234,7 +234,7 @@ def train_llm(args, component: str):
     else:
         try:
             print("🌐 Local dataset not found. Attempting to load from HuggingFace Hub (zayedrehman/safelang-1m)...")
-            ds = load_dataset("zayedrehman/safelang-1m", trust_remote_code=True)
+            ds = load_dataset("zayedrehman/safelang-1m")
         except Exception:
             print("⚠️  Dataset not found on Hub. Bootstrapping SafeLang-1M from source benchmarks ...")
             create_safelang_1m(output_dir=str(data_path), push_to_hub=bool(args.push_to_hub))
@@ -264,14 +264,21 @@ def train_llm(args, component: str):
         report_to="none",
     )
 
-    trainer = SFTTrainer(
-        model=model,
-        train_dataset=train_ds,
-        args=sft_config,
-        tokenizer=tokenizer,
-        dataset_text_field="text",
-        max_seq_length=512,
-    )
+    # 4. Trainer
+    sft_params = {
+        "model": model,
+        "train_dataset": train_ds,
+        "args": sft_config,
+        "dataset_text_field": "text",
+        "max_seq_length": 512,
+    }
+
+    try:
+        # Try primary argument name (most versions)
+        trainer = SFTTrainer(**sft_params, tokenizer=tokenizer)
+    except TypeError:
+        # Fallback for some newer trl versions
+        trainer = SFTTrainer(**sft_params, processing_class=tokenizer)
 
     print(f"🚀 Starting {component.upper()} training ...")
     trainer.train()
