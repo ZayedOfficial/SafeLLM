@@ -59,6 +59,10 @@ def set_seed(seed: int):
 # ---------------------------------------------------------------------------
 def train_verifier(args):
     """Fine-tune DeBERTa-v3-large as a binary safety classifier."""
+    if getattr(args, "free_tier", False):
+        args.max_samples = 100000
+        print("💡 Free-tier mode active: limiting dataset to 100k samples.")
+
     if not HAS_TORCH:
         print("❌ PyTorch required for local training. Install: pip install torch")
         sys.exit(1)
@@ -109,6 +113,15 @@ def train_verifier(args):
             padding=False,
         )
 
+    if args.max_samples and args.max_samples < len(train_ds):
+        print(f"📉 Subsampling training set to {args.max_samples} samples...")
+        train_ds = train_ds.shuffle(seed=args.seed).select(range(args.max_samples))
+    
+    if args.max_samples and (args.max_samples // 10) < len(val_ds):
+        val_limit = max(100, args.max_samples // 10)
+        print(f"📉 Subsampling validation set to {val_limit} samples...")
+        val_ds = val_ds.shuffle(seed=args.seed).select(range(val_limit))
+
     print("📦 Tokenizing dataset …")
     train_tok = train_ds.map(tokenize, batched=True, desc="Tokenize train")
     val_tok = val_ds.map(tokenize, batched=True, desc="Tokenize val")
@@ -128,7 +141,7 @@ def train_verifier(args):
         learning_rate=2e-5,
         weight_decay=0.01,
         warmup_ratio=0.1,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",
         save_strategy="epoch",
         load_best_model_at_end=True,
         metric_for_best_model="f1",
@@ -216,20 +229,26 @@ def parse_args():
     v.add_argument("--epochs", type=int, default=5)
     v.add_argument("--batch-size", type=int, default=8)
     v.add_argument("--seed", type=int, default=42)
+    v.add_argument("--max-samples", type=int, default=None, help="Limit samples")
+    v.add_argument("--free-tier", action="store_true", help="Auto-set --max-samples 100000")
     v.add_argument("--certify", action="store_true", help="Compute certified accuracy after training")
     v.add_argument("--push-to-hub", action="store_true")
 
     # Scout
-    s = sub.add_parser("scout", help="Fine-tune Mistral-7B scout (Colab/AutoTrain)")
+    s = sub.add_parser("scout", help="Fine-tune Mistral-7B scout")
     s.add_argument("--model", default="mistralai/Mistral-7B-Instruct-v0.3")
     s.add_argument("--lora-r", type=int, default=16)
     s.add_argument("--seed", type=int, default=42)
+    s.add_argument("--max-samples", type=int, default=None)
+    s.add_argument("--free-tier", action="store_true")
 
     # Analyst
-    a = sub.add_parser("analyst", help="Fine-tune Qwen2.5-7B analyst (Colab/AutoTrain)")
+    a = sub.add_parser("analyst", help="Fine-tune Qwen2.5-7B analyst")
     a.add_argument("--model", default="Qwen/Qwen2.5-7B-Instruct")
     a.add_argument("--lora-r", type=int, default=32)
     a.add_argument("--seed", type=int, default=42)
+    a.add_argument("--max-samples", type=int, default=None)
+    a.add_argument("--free-tier", action="store_true")
 
     return parser.parse_args()
 

@@ -32,6 +32,10 @@ train-verifier-fast:
 	@echo "🔧 Training verifier (quick test, 1 epoch)..."
 	python train.py verifier --epochs 1 --batch-size 4 --seed 42
 
+train-verifier-free:
+	@echo "🚀 Starting Free-Tier optimized training (100k samples)..."
+	python train.py verifier --free-tier --epochs 1 --batch-size 4 --certify
+
 train-scout:
 	@echo "🤗 Scout training: see notebooks/train_scout.ipynb (Colab A100)"
 	python train.py scout --lora-r 16 --seed 42
