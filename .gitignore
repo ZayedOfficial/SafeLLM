@@ -1,0 +1,63 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# ML / Training
+checkpoints/
+*.onnx
+*.bin
+*.safetensors
+wandb/
+runs/
+logs/
+*.log
+
+# Data (large)
+data/
+*.parquet
+*.arrow
+*.jsonl.gz
+
+# Secrets
+.env
+*.env
+secrets.yaml
+hf_token.txt
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+# (Allowing *.ipynb for Colab training)
+
+# LaTeX build artifacts
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.pdf
+paper/*.synctex.gz
+paper/*.toc

@@ -1,0 +1,28 @@
+model: Qwen/Qwen2.5-7B-Instruct
+task: instruction-tuning
+method: qlora
+
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+
+quantization:
+  load_in_4bit: true
+  bnb_4bit_compute_dtype: bfloat16
+  bnb_4bit_quant_type: nf4
+
+training:
+  epochs: 3
+  batch_size: 2
+  gradient_accumulation_steps: 8
+  learning_rate: 1.5e-4
+  max_length: 1024
+  seed: 42
+
+output:
+  checkpoint_dir: checkpoints/analyst
+  hub_model_id: zayedrehman/safelang-analyst
+
+# Fine-tune via: notebooks/train_analyst.ipynb (Google Colab A100)

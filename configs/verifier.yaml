@@ -1,0 +1,28 @@
+model: microsoft/deberta-v3-large
+task: text-classification
+num_labels: 2
+label2id:
+  SAFE: 0
+  UNSAFE: 1
+id2label:
+  0: SAFE
+  1: UNSAFE
+
+training:
+  epochs: 5
+  batch_size: 8
+  learning_rate: 2.0e-5
+  weight_decay: 0.01
+  warmup_ratio: 0.1
+  max_length: 512
+  fp16: true
+  seed: 42
+
+certification:
+  epsilon: 0.03137  # 8/255
+  cert_delta: 0.01
+  lipschitz_constant: 1.0
+
+output:
+  checkpoint_dir: checkpoints/verifier
+  hub_model_id: zayedrehman/safelang-verifier
