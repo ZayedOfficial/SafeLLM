@@ -250,7 +250,7 @@ def train_llm(args, component: str):
         print(f"📉 Subsampling to {args.max_samples} samples...")
         train_ds = train_ds.shuffle(seed=args.seed).select(range(args.max_samples))
 
-    # 4. Trainer
+    # 4. Trainer (Config holds most parameters in newer TRL versions)
     sft_config = SFTConfig(
         output_dir=f"checkpoints/{component}",
         num_train_epochs=args.epochs,
@@ -262,23 +262,31 @@ def train_llm(args, component: str):
         push_to_hub=bool(args.push_to_hub),
         hub_model_id=args.push_to_hub,
         report_to="none",
+        dataset_text_field="text",
+        max_seq_length=512,
     )
 
-    # 4. Trainer
     sft_params = {
         "model": model,
         "train_dataset": train_ds,
         "args": sft_config,
-        "dataset_text_field": "text",
-        "max_seq_length": 512,
     }
 
     try:
-        # Try primary argument name (most versions)
-        trainer = SFTTrainer(**sft_params, tokenizer=tokenizer)
-    except TypeError:
-        # Fallback for some newer trl versions
+        # Try latest recommended way (one of these must work)
         trainer = SFTTrainer(**sft_params, processing_class=tokenizer)
+    except TypeError:
+        # Fallback for slightly older versions
+        try:
+            trainer = SFTTrainer(**sft_params, tokenizer=tokenizer)
+        except TypeError:
+            # Absolute fallback if dataset_text_field is still expected as a kwarg
+            trainer = SFTTrainer(
+                **sft_params, 
+                tokenizer=tokenizer, 
+                dataset_text_field="text", 
+                max_seq_length=512
+            )
 
     print(f"🚀 Starting {component.upper()} training ...")
     trainer.train()
