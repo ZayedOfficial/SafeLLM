@@ -184,33 +184,93 @@ def train_verifier(args):
 # ---------------------------------------------------------------------------
 # Scout / Analyst Training via HF AutoTrain (API-based)
 # ---------------------------------------------------------------------------
-def train_lora_via_autotrain(component: str, model_id: str, lora_r: int, seed: int):
-    """
-    Guide user to use HF AutoTrain for large model fine-tuning.
-    No local disk/GPU required beyond dataset upload.
-    """
-    notebook_path = f"notebooks/train_{component}.ipynb"
-    print(f"""
-╔══════════════════════════════════════════════════════════════╗
-║  SafeLang-1M: {component.upper()} Training via HF AutoTrain / Colab    ║
-╠══════════════════════════════════════════════════════════════╣
-  Model      : {model_id}
-  LoRA rank  : {lora_r}
-  Seed       : {seed}
+def train_llm(args, component: str):
+    """Fine-tune the Scout (Mistral) or Analyst (Qwen) using LoRA."""
+    if not HAS_TORCH:
+        print("❌ PyTorch Required.")
+        return
 
-  Large model fine-tuning recommended via:
-  Option A) Google Colab A100 notebook → {notebook_path}
-  Option B) HuggingFace AutoTrain at:
-            https://huggingface.co/autotrain
+    from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+    from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+    from trl import SFTTrainer, SFTConfig
+    from datasets import load_from_disk
 
-  Steps:
-  1. Upload your dataset to HF Hub:
-     python datasets/safelang_1m.py --push-to-hub
-  2. Open {notebook_path} in Google Colab
-  3. Run all cells (set HF_TOKEN in Colab secrets)
-  4. Model will be published to zayedrehman/safelang-{component}
-╚══════════════════════════════════════════════════════════════╝
-""")
+    # 1. Configs
+    bnb_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_compute_dtype=torch.float16,
+    )
+    
+    lora_config = LoraConfig(
+        r=args.lora_r,
+        lora_alpha=32,
+        target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
+        lora_dropout=0.05,
+        bias="none",
+        task_type="CAUSAL_LM",
+    )
+
+    # 2. Model & Tokenizer
+    model_id = args.model
+    print(f"🔧 Loading {component.upper()} model: {model_id} ...")
+    tokenizer = AutoTokenizer.from_pretrained(model_id)
+    tokenizer.pad_token = tokenizer.eos_token
+    
+    model = AutoModelForCausalLM.from_pretrained(
+        model_id,
+        quantization_config=bnb_config,
+        device_map="auto",
+        trust_remote_code=True
+    )
+    model.config.use_cache = False
+    model = prepare_model_for_kbit_training(model)
+    model = get_peft_model(model, lora_config)
+
+    # 3. Dataset (Uses formatted texts for SFT)
+    data_path = Path("data/safelang_1m")
+    if not data_path.exists():
+        print("⚠️  Dataset not found locally. Ensure it exists in data/safelang_1m")
+        return
+    
+    ds = load_from_disk(str(data_path))
+    train_ds = ds["train"]
+
+    # Free-tier logic
+    if getattr(args, "free_tier", False):
+        args.max_samples = 100000
+    
+    if args.max_samples and args.max_samples < len(train_ds):
+        print(f"📉 Subsampling to {args.max_samples} samples...")
+        train_ds = train_ds.shuffle(seed=args.seed).select(range(args.max_samples))
+
+    # 4. Trainer
+    sft_config = SFTConfig(
+        output_dir=f"checkpoints/{component}",
+        num_train_epochs=args.epochs,
+        per_device_train_batch_size=2,
+        gradient_accumulation_steps=4,
+        learning_rate=2e-4,
+        fp16=True,
+        logging_steps=10,
+        push_to_hub=bool(args.push_to_hub),
+        hub_model_id=args.push_to_hub,
+        report_to="none",
+        max_seq_length=512,
+    )
+
+    trainer = SFTTrainer(
+        model=model,
+        train_dataset=train_ds,
+        args=sft_config,
+        tokenizer=tokenizer,
+        dataset_text_field="text",
+    )
+
+    print(f"🚀 Starting {component.upper()} training ...")
+    trainer.train()
+    trainer.save_model(f"checkpoints/{component}/final")
+    print(f"✅ {component.upper()} saved to checkpoints/{component}/final")
 
 
 # ---------------------------------------------------------------------------
@@ -237,18 +297,22 @@ def parse_args():
     # Scout
     s = sub.add_parser("scout", help="Fine-tune Mistral-7B scout")
     s.add_argument("--model", default="mistralai/Mistral-7B-Instruct-v0.3")
+    s.add_argument("--epochs", type=int, default=3)
     s.add_argument("--lora-r", type=int, default=16)
     s.add_argument("--seed", type=int, default=42)
     s.add_argument("--max-samples", type=int, default=None)
     s.add_argument("--free-tier", action="store_true")
+    s.add_argument("--push-to-hub", default=None, help="HF repo to push to")
 
     # Analyst
     a = sub.add_parser("analyst", help="Fine-tune Qwen2.5-7B analyst")
     a.add_argument("--model", default="Qwen/Qwen2.5-7B-Instruct")
+    a.add_argument("--epochs", type=int, default=3)
     a.add_argument("--lora-r", type=int, default=32)
     a.add_argument("--seed", type=int, default=42)
     a.add_argument("--max-samples", type=int, default=None)
     a.add_argument("--free-tier", action="store_true")
+    a.add_argument("--push-to-hub", default=None, help="HF repo to push to")
 
     return parser.parse_args()
 
@@ -259,9 +323,9 @@ def main():
     if args.component == "verifier":
         train_verifier(args)
     elif args.component == "scout":
-        train_lora_via_autotrain("scout", args.model, args.lora_r, args.seed)
+        train_llm(args, "scout")
     elif args.component == "analyst":
-        train_lora_via_autotrain("analyst", args.model, args.lora_r, args.seed)
+        train_llm(args, "analyst")
 
 
 if __name__ == "__main__":
