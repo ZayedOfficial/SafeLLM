@@ -74,7 +74,7 @@ def train_verifier(args):
         TrainingArguments,
         DataCollatorWithPadding,
     )
-    from datasets import load_from_disk, Dataset
+    from datasets import load_from_disk, Dataset, load_dataset
     import evaluate
 
     set_seed(args.seed)
@@ -86,24 +86,17 @@ def train_verifier(args):
     tokenizer = AutoTokenizer.from_pretrained(model_id)
     model = AutoModelForSequenceClassification.from_pretrained(model_id, num_labels=2)
 
-    # Load dataset (must have run datasets/safelang_1m.py first)
+    # Load dataset (must have run datasets/safelang_1m.py first, or fallback to Hub)
     data_path = Path("data/safelang_1m")
-    if not data_path.exists():
-        print("⚠️  Dataset not found. Run: python datasets/safelang_1m.py --output-dir data/safelang_1m")
-        print("   Or use streaming: this script will fall back to a small sample.")
-        # Create tiny synthetic dataset for demonstration
-        from datasets import Dataset as HFDataset
-        synthetic = {
-            "text": ["safe text"] * 100 + ["how to make a bomb"] * 100,
-            "label": [0] * 100 + [1] * 100,
-        }
-        train_ds = HFDataset.from_dict(synthetic)
-        val_ds = HFDataset.from_dict({"text": train_ds["text"][:20], "label": train_ds["label"][:20]})
-    else:
-        from datasets import load_from_disk
+    if data_path.exists():
+        print(f"📦 Loading local dataset from {data_path}...")
         ds = load_from_disk(str(data_path))
-        train_ds = ds["train"]
-        val_ds = ds["validation"]
+    else:
+        print("🌐 Local dataset not found. Falling back to HuggingFace Hub (ZayedRehman/safelang-1m)...")
+        ds = load_dataset("ZayedRehman/safelang-1m")
+    
+    train_ds = ds["train"]
+    val_ds = ds["validation"]
 
     def tokenize(batch):
         return tokenizer(
@@ -193,7 +186,7 @@ def train_llm(args, component: str):
     from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
     from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
     from trl import SFTTrainer, SFTConfig
-    from datasets import load_from_disk
+    from datasets import load_from_disk, load_dataset
 
     # 1. Configs
     bnb_config = BitsAndBytesConfig(
@@ -229,11 +222,13 @@ def train_llm(args, component: str):
 
     # 3. Dataset (Uses formatted texts for SFT)
     data_path = Path("data/safelang_1m")
-    if not data_path.exists():
-        print("⚠️  Dataset not found locally. Ensure it exists in data/safelang_1m")
-        return
+    if data_path.exists():
+        print(f"📦 Loading local dataset from {data_path}...")
+        ds = load_from_disk(str(data_path))
+    else:
+        print("🌐 Local dataset not found. Falling back to HuggingFace Hub (ZayedRehman/safelang-1m)...")
+        ds = load_dataset("ZayedRehman/safelang-1m")
     
-    ds = load_from_disk(str(data_path))
     train_ds = ds["train"]
 
     # Free-tier logic
