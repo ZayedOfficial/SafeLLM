@@ -309,13 +309,15 @@ def create_safelang_1m(
 
     # Optional: push to HF Hub
     if push_to_hub and not dry_run:
-        token = os.getenv("HF_TOKEN")
+        from huggingface_hub import HfApi, get_token
+        token = os.getenv("HF_TOKEN") or get_token()
+        
         if not token:
-            print("⚠️  HF_TOKEN not set in .env — skipping push_to_hub")
+            print("⚠️  No HuggingFace token found (env or cache). Use: login() or set HF_TOKEN env var.")
         else:
             try:
-                from huggingface_hub import whoami
-                username = whoami(token=token)["name"]
+                api = HfApi(token=token)
+                username = api.whoami()["name"]
                 repo_id = f"{username}/safelang-1m"
                 print(f"\n🚀 Pushing to Hub: {repo_id} ...")
                 dataset_dict.push_to_hub(repo_id, token=token)
