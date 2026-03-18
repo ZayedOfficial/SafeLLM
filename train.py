@@ -242,6 +242,26 @@ def train_llm(args, component: str):
     
     train_ds = ds["train"]
 
+    # Resolve HF Username dynamically if pushing to hub
+    hub_model_id = args.push_to_hub
+    if args.push_to_hub:
+        from huggingface_hub import HfApi, get_token
+        try:
+            token = os.getenv("HF_TOKEN") or get_token()
+            api = HfApi(token=token)
+            username = api.whoami()["name"]
+            
+            # If the user provided "namespace/repo", fix the namespace
+            if "/" in args.push_to_hub:
+                repo_name = args.push_to_hub.split("/")[-1]
+                hub_model_id = f"{username}/{repo_name}"
+            else:
+                hub_model_id = f"{username}/{args.push_to_hub}"
+            
+            print(f"👤 Authenticated as: {username}. Targets Hub ID: {hub_model_id}")
+        except Exception as e:
+            print(f"⚠️  Could not resolve HF username (will try provided logic): {e}")
+
     # Free-tier logic
     if getattr(args, "free_tier", False):
         args.max_samples = 100000
@@ -260,7 +280,7 @@ def train_llm(args, component: str):
         fp16=True,
         logging_steps=10,
         push_to_hub=bool(args.push_to_hub),
-        hub_model_id=args.push_to_hub,
+        hub_model_id=hub_model_id,
         report_to="none",
         dataset_text_field="text",
         max_seq_length=512,
